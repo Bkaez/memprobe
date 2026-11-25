@@ -1,0 +1,47 @@
+# =============================================================================
+#  CI  --  runs automatically on every save.
+#
+#  PURPOSE: tell you within about a minute whether your code still compiles,
+#  on both processor architectures, with warnings treated as errors.
+#
+#  EXPECTED EFFECT: a green check next to your commit. If it goes red, click
+#  it and read the first red line. Fix that one thing. Everything else in the
+#  log is usually a consequence of it.
+# =============================================================================
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile, warnings are errors
+        run: make CFLAGS="-std=c11 -O2 -Wall -Wextra -Werror"
+
+      - name: It runs
+        run: |
+          ./memprobe sizes
+          ./memprobe verify
+
+      # Catches the single most damaging bug in this project: the compiler
+      # removing your timing loop because its result is never used.
+      - name: Timing loop survived the optimiser
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          if ! grep -q "asm" src/chase.c; then
+            echo "::warning::No compiler barrier found in chase.c yet."
+            echo "Without one, -O2 may delete your timing loop and you will"
+            echo "measure an empty loop. See the TODO comments in that file."
+          fi
