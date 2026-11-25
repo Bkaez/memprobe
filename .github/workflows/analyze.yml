@@ -1,0 +1,52 @@
+# =============================================================================
+#  ANALYZE  --  turn your committed runs into figures and a summary table.
+#
+#  Start it by hand: Actions -> "analyze" -> "Run workflow".
+#  Run it after you have several measurement runs committed.
+#
+#  PURPOSE: pool all your runs, draw the median with a shaded band showing
+#  the full range you observed, and compare the three architectures.
+#
+#  EFFECT: a new commit adding site/plots/*.png and site/summary.md.
+#  Those are the figures you put in REPORT.md.
+# =============================================================================
+name: analyze
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install plotting libraries
+        run: pip install --quiet matplotlib pandas tabulate
+
+      - name: Build figures and summary from data/
+        run: python3 scripts/analyze.py data site
+
+      - name: Commit the results
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/
+          if git diff --staged --quiet; then
+            echo "nothing changed"
+          else
+            git commit -m "figures from run ${{ github.run_number }}"
+            git push
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: figures
+          path: site/
