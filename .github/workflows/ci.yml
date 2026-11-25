@@ -1,13 +1,13 @@
+
 # =============================================================================
-#  CI  --  runs automatically on every save.
+# CI -- runs automatically on every save.
 #
-#  PURPOSE: tell you within about a minute whether your code still compiles,
-#  on both processor architectures, with warnings treated as errors.
+# PURPOSE: Check that the code compiles on multiple processor architectures,
+# with compiler warnings treated as errors.
 #
-#  EXPECTED EFFECT: a green check next to your commit. If it goes red, click
-#  it and read the first red line. Fix that one thing. Everything else in the
-#  log is usually a consequence of it.
+# EXPECTED EFFECT: A green check next to your commit if all builds pass.
 # =============================================================================
+
 name: ci
 
 on:
@@ -19,13 +19,20 @@ jobs:
   build:
     name: build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
 
+    # Run commands inside the actual project directory.
+    defaults:
+      run:
+        working-directory: memprobe-template/memprobe-template
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
       - name: Compile, warnings are errors
         run: make CFLAGS="-std=c11 -O2 -Wall -Wextra -Werror"
@@ -35,8 +42,7 @@ jobs:
           ./memprobe sizes
           ./memprobe verify
 
-      # Catches the single most damaging bug in this project: the compiler
-      # removing your timing loop because its result is never used.
+      # Check whether the timing loop has a compiler barrier.
       - name: Timing loop survived the optimiser
         if: matrix.os == 'ubuntu-latest'
         run: |
